@@ -21,7 +21,7 @@ fn get_deck(num_decks: i32) -> Vec<i32> {
     deck
 }
 
-fn play_hand(mut deck: Vec<i32>) -> HandResult {
+fn play_hand(deck: &mut Vec<i32>) -> HandResult {
     let mut dealerhands: Vec<i32> = Vec::new();
     let mut myhands: Vec<i32> = Vec::new();
 //println!("{:?}", deck);
@@ -57,8 +57,8 @@ fn play_hand(mut deck: Vec<i32>) -> HandResult {
     let d_sum = dealerhands.iter().sum::<i32>();
     let my_sum = myhands.iter().sum::<i32>();
 
-    println!("Dealer: {:?} (suma: {})", dealerhands, d_sum);
-    println!("Mine: {:?} (suma: {})", myhands, my_sum);
+    //println!("Dealer: {:?} (suma: {})", dealerhands, d_sum);
+    //println!("Mine: {:?} (suma: {})", myhands, my_sum);
 
     if d_sum > 21 {
         return HandResult::DealerBust;
@@ -78,9 +78,9 @@ fn play_hand(mut deck: Vec<i32>) -> HandResult {
 }
 
 fn main() {
-    let num_decks = 400000;
-    let min_deck_len = 156;
-    let num_simulations = 1000000;
+    let num_decks = 4;
+    let min_deck_len = 116;
+    let num_simulations = 10000;
 
     let mut deck = get_deck(num_decks);
 
@@ -89,68 +89,11 @@ fn main() {
     let mut loses = 0;
 
     for _i in 0..num_simulations {
-
-        let mut dealerhands: Vec<i32> = Vec::new();
-        let mut myhands: Vec<i32> = Vec::new();
-    //println!("{:?}", deck);
-        dealerhands.push(deck.pop().unwrap());
-        myhands.push(deck.pop().unwrap());
-        dealerhands.push(deck.pop().unwrap());
-        myhands.push(deck.pop().unwrap());
-
-        while myhands.iter().sum::<i32>() < 12 {
-            myhands.push(deck.pop().unwrap());
-        }
-
-        while dealerhands.iter().sum::<i32>() < 18 {
-            let mut exit = false;
-
-            if dealerhands.iter().sum::<i32>() == 17 {
-                exit = true;
-                for i in 0..dealerhands.len() {
-                    if dealerhands[i] == 11 {
-                        exit = false;
-                        dealerhands[i] = 1;
-                    }
-                }
-            }
-
-            if exit == true {
-                break;
-            }
-
-            dealerhands.push(deck.pop().unwrap());
-        }
-        
-        let d_sum = dealerhands.iter().sum::<i32>();
-        let my_sum = myhands.iter().sum::<i32>();
-
-        //println!("Dealer: {:?} (suma: {})", dealerhands, d_sum);
-        //println!("Mine: {:?} (suma: {})\n", myhands, my_sum);
-
-        if d_sum > 21 {
-            wins += 1;
-        }
-        if d_sum == my_sum {
-            draws += 1;
-        }
-
-        if d_sum > my_sum {
-            loses += 1;
-        }
-
-        if d_sum < my_sum {
-            wins += 1;
-        }
-        
-
-        /*
-        let deck_len = deck.len();
-        if deck_len < min_deck_len {
+        if deck.len() < min_deck_len {
             deck = get_deck(num_decks);
         }
-       
-        let result = play_hand(deck);
+        
+        let result = play_hand(&mut deck);
 
         match result {
             HandResult::DealerWin => loses += 1,
@@ -159,11 +102,12 @@ fn main() {
             HandResult::DealerLose => wins += 1,
             HandResult::Unknown => println!("WTF!"),
         }
-         */
     }
 
-    println!("Wins: {} - Draws: {} - Loses: {}", wins, draws, loses);
-
-
+    println!("\nTotal simulations: {}", num_simulations);
+    println!(" - Wins: {}\n - Draws: {}\n - Loses: {}\n", wins, draws, loses);
+    println! ("Win percentage: {}" , ((wins as f32 / num_simulations as f32) * 100.00));
+    println! ("Draw percentage: {}" , ((draws as f32 / num_simulations as f32) * 100.00));
+    println! ("Lose percentage: {}" , ((loses as f32 / num_simulations as f32) * 100.00));
     
 }
