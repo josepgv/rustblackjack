@@ -1,13 +1,19 @@
 use rand::seq::SliceRandom;
 use std::time::Instant;
-use std::sync::{Arc, Mutex};
 use std::thread;
+
 enum HandResult {
     DealerBust,
     DealerTie,
     DealerLose,
     DealerWin,
     Unknown
+}
+
+struct SimResult {
+    wins: i32,
+    draws: i32,
+    loses: i32
 }
 
 fn get_deck(num_decks: i32) -> Vec<i32> {
@@ -26,7 +32,7 @@ fn get_deck(num_decks: i32) -> Vec<i32> {
 fn play_hand(deck: &mut Vec<i32>) -> HandResult {
     let mut dealerhands: Vec<i32> = Vec::new();
     let mut myhands: Vec<i32> = Vec::new();
-//println!("{:?}", deck);
+
     dealerhands.push(deck.pop().unwrap());
     myhands.push(deck.pop().unwrap());
     dealerhands.push(deck.pop().unwrap());
@@ -59,12 +65,14 @@ fn play_hand(deck: &mut Vec<i32>) -> HandResult {
     let d_sum = dealerhands.iter().sum::<i32>();
     let my_sum = myhands.iter().sum::<i32>();
 
-    //println!("Dealer: {:?} (suma: {})", dealerhands, d_sum);
-    //println!("Mine: {:?} (suma: {})", myhands, my_sum);
+    if my_sum > 21 {
+        return HandResult::DealerWin;
+    }
 
     if d_sum > 21 {
         return HandResult::DealerBust;
     }
+
     if d_sum == my_sum {
         return HandResult::DealerTie;
     }
@@ -84,60 +92,67 @@ fn main() {
     let min_deck_len = 126;
     let num_simulations = 250000;
 
-    let cpu_cores = 4;
+    let cpu_cores = num_cpus::get();
     let batch_size = num_simulations / cpu_cores;
 
     let now = Instant::now();
 
-    let wins = Arc::new(Mutex::new(0));
-    let draws = Arc::new(Mutex::new(0));
-    let loses = Arc::new(Mutex::new(0));
-
-    //let mut deck = get_deck(num_decks);
-
     let mut handles = vec![];
 
     for _t in 0..cpu_cores {
-        let wins = Arc::clone(&wins);
-        let draws = Arc::clone(&draws);
-        let loses = Arc::clone(&loses);
     
         let handle = thread::spawn(move || {
-            let mut num_wins = wins.lock().unwrap();
-            let mut num_draws = draws.lock().unwrap();
-            let mut num_loses = loses.lock().unwrap();
+            let mut simresult = SimResult {
+                wins: 0,
+                draws: 0,
+                loses: 0
+            };
             let mut deck = get_deck(num_decks);
-            println!("Starting thread");
+            println!("Starting thread {}", _t);
             for _i in 0..batch_size {
                 if deck.len() < min_deck_len {
                     deck = get_deck(num_decks);
                 }
                 
                 let result = play_hand(&mut deck);
+
+                if _i == (batch_size/2) {
+                    println!("Thread {} at 50%", _t);
+                }
     
                 match result {
-                    HandResult::DealerWin => *num_loses += 1,
-                    HandResult::DealerBust => *num_wins += 1,
-                    HandResult::DealerTie => *num_draws += 1,
-                    HandResult::DealerLose => *num_wins += 1,
+                    HandResult::DealerWin => simresult.loses += 1,
+                    HandResult::DealerBust => simresult.wins += 1,
+                    HandResult::DealerTie => simresult.draws += 1,
+                    HandResult::DealerLose => simresult.wins += 1,
                     HandResult::Unknown => println!("WTF!"),
                 }
             }
+            return simresult;
         });
         handles.push(handle);
     }
 
+    let mut totals_sims = SimResult {
+        wins: 0,
+        draws: 0,
+        loses: 0
+    };
+
     for handle in handles {
-        handle.join().unwrap();
+        let info = handle.join().unwrap();
+        totals_sims.wins += info.wins;
+        totals_sims.draws += info.draws;
+        totals_sims.loses += info.loses;
     }
 
     let elapsed = now.elapsed();
 
     println!("\nTotal simulations: {}", num_simulations);
-    println!(" - Wins: {}\n - Draws: {}\n - Loses: {}\n", *wins.lock().unwrap(), *draws.lock().unwrap(), *loses.lock().unwrap());
-    println! ("Win percentage: {}" , ((*wins.lock().unwrap() as f32 / num_simulations as f32) * 100.00));
-    println! ("Draw percentage: {}" , ((*draws.lock().unwrap() as f32 / num_simulations as f32) * 100.00));
-    println! ("Lose percentage: {}" , ((*loses.lock().unwrap() as f32 / num_simulations as f32) * 100.00));
+    println!(" - Wins: {}\n - Draws: {}\n - Loses: {}\n", totals_sims.wins, totals_sims.draws, totals_sims.loses);
+    println! ("Win percentage: {}" , ((totals_sims.wins as f32 / num_simulations as f32) * 100.00));
+    println! ("Draw percentage: {}" , ((totals_sims.draws as f32 / num_simulations as f32) * 100.00));
+    println! ("Lose percentage: {}" , ((totals_sims.loses as f32 / num_simulations as f32) * 100.00));
     println!("Elapsed time: {:?}", elapsed);
     
 }
